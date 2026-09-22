@@ -139,6 +139,9 @@ const StudentRegister = () => {
                   <option value="Electrical Engineering">Electrical Engg (EE)</option>
                   <option value="Mechanical Engineering">Mechanical Engg (ME)</option>
                   <option value="Civil Engineering">Civil Engg (CE)</option>
+                    <option value="CSE-AIML">CSE – AI &amp; ML</option>
+                    <option value="CSE-DS">CSE – Data Science</option>
+                    <option value="ELCE">Electronics &amp; Communication (ELCE)</option>
                   <option value="Other">Other Branch</option>
                 </select>
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
