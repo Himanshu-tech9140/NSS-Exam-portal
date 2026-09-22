@@ -74,7 +74,7 @@ app.use('/api', apiLimiter);
 // Auth Endpoint Rate Limiter (Allow up to 1000 logins/registrations per 15 min from same lab IP)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 1000,
+  max: 200,
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {

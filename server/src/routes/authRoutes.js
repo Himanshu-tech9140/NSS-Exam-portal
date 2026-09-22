@@ -10,11 +10,9 @@ const {
 const { verifyToken } = require('../middleware/auth');
 const { validateStudentLogin, validateStudentRegister } = require('../middleware/validator');
 
-// Public auth endpoints
-router.post('/student/register', studentRegister);
-router.post('/student/login', studentLogin);
+// Public auth endpoints – validation middleware is applied
 router.post('/student/register', validateStudentRegister, studentRegister);
-router.post('/student/login', validateStudentLogin, studentLogin);
+router.post('/student/login',    validateStudentLogin,    studentLogin);
 router.post('/admin/login', adminLogin);
 router.post('/logout', logout);
 
