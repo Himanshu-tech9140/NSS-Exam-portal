@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 font-sans antialiased min-h-screen;
+    margin: 0;
+  }
+}
+
+/* Anti-Cheat: Hide all content when printing or taking print previews */
+@media print {
+  body {
+    display: none !important;
+  }
+}
+
+/* Prohibit text selection on exam container */
+.exam-secure-area {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
