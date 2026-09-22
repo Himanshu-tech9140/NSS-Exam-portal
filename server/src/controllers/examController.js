@@ -770,13 +770,45 @@ const recordViolationAndTerminate = async (req, res, next) => {
     const defaultReason = VIOLATION_REASONS[type] || 'Prohibited action detected during active exam.';
     const reason = metadata?.customReason || defaultReason;
 
-    // Find active session for student
+    // Locate the session (optionally by sessionId)
     const sessionQuery = { studentId };
     if (sessionId) sessionQuery.sessionId = sessionId;
 
-    // ATOMIC TERMINATION: IN_PROGRESS -> TERMINATED
-    const session = await ExamSession.findOneAndUpdate(
-      { ...sessionQuery, status: 'IN_PROGRESS' },
+    const session = await ExamSession.findOne(sessionQuery);
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Exam session not found.',
+      });
+    }
+
+    // Increment violation count atomically
+    const updatedSession = await ExamSession.findOneAndUpdate(
+      { _id: session._id },
+      { $inc: { violationCount: 1 } },
+      { new: true }
+    );
+
+    // First violation → warning only (no termination)
+    if (updatedSession.violationCount === 1) {
+      logSecurityEvent('CHEAT_WARNING_ISSUED', {
+        studentId,
+        sessionId: updatedSession.sessionId,
+        type,
+        reason,
+      });
+      return res.status(200).json({
+        success: true,
+        warning: true,
+        message: 'Cheating detected. One more violation will terminate the exam.',
+        violationCount: updatedSession.violationCount,
+        violationReason: reason,
+      });
+    }
+
+    // Second or subsequent violation → terminate the session
+    const finalSession = await ExamSession.findOneAndUpdate(
+      { _id: updatedSession._id, status: 'IN_PROGRESS' },
       {
         $set: {
           status: 'TERMINATED',
@@ -788,36 +820,32 @@ const recordViolationAndTerminate = async (req, res, next) => {
       { new: true }
     );
 
-    let finalSession = session;
-    if (!finalSession) {
-      // Find existing session to verify status
-      finalSession = await ExamSession.findOne(sessionQuery);
-    }
+    // Zero out the student's scores instead of deleting the result document
+    await ExamResult.findOneAndUpdate(
+      { studentId, examId: finalSession.examId },
+      { $set: { mcqMarks: 0, subjectiveMarks: 0, totalMarks: 0 } },
+      { new: true, upsert: true }
+    );
+    emitLeaderboardUpdate(finalSession.examId);
 
-    if (finalSession) {
-      // Purge any ExamResult if candidate was previously marked completed
-      await ExamResult.deleteOne({ studentId, examId: finalSession.examId });
-      emitLeaderboardUpdate(finalSession.examId);
+    // Record the violation in the Violation collection
+    await Violation.create({
+      studentId,
+      examId: finalSession.examId,
+      sessionId: finalSession.sessionId,
+      type,
+      timestamp: new Date(),
+      metadata: metadata || {},
+    });
 
-      // Log Violation record in MongoDB
-      await Violation.create({
-        studentId,
-        examId: finalSession.examId,
-        sessionId: finalSession.sessionId,
-        type,
-        timestamp: new Date(),
-        metadata: metadata || {},
-      });
+    logSecurityEvent('EXAM_TERMINATED_VIOLATION', {
+      studentId,
+      sessionId: finalSession.sessionId,
+      type,
+      reason,
+    });
 
-      logSecurityEvent('EXAM_TERMINATED_VIOLATION', {
-        studentId,
-        sessionId: finalSession.sessionId,
-        type,
-        reason,
-      });
-    }
-
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       terminated: true,
       reason: finalSession?.terminationReason || reason,

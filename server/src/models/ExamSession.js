@@ -79,10 +79,11 @@ const examSessionSchema = new mongoose.Schema(
     terminatedAt: {
       type: Date,
     },
-    terminationReason: {
-      type: String,
-      default: '',
+    violationCount: {
+      type: Number,
+      default: 0,
     },
+
     lastSeenAt: {
       type: Date,
       default: Date.now,
