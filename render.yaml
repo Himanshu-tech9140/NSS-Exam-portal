@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: nss-server
+    env: node
+    rootDir: server
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: JWT_SECRET
+        fromSecret: jwt_secret
+      - key: CLIENT_URL
+        fromSecret: client_url
+      - key: MONGODB_URI
+        fromSecret: mongodb_uri
+    healthCheckPath: /api/health
+
+  - type: static
+    name: nss-client
+    env: static
+    rootDir: client
+    plan: free
+    buildCommand: npm run build
+    publishDir: dist
+    branch: main
