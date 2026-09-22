@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  // Directly point to the backend service (includes the /api mount point).
+  baseURL: 'https://nss-backend-n0pa.onrender.com/api',
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
