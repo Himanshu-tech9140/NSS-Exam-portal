@@ -34,7 +34,9 @@ export const VIOLATION_REASONS = {
 export const useExamAntiCheat = ({ sessionId, active, onTerminated }) => {
   const terminationInProgress = useRef(false);
 
-  // Central termination function
+  const [warning, setWarning] = useState(null);
+
+  // Central termination function with warning handling
   const terminateExam = useCallback(
     async (type, metadata = {}) => {
       // Prevent duplicate termination calls
@@ -44,20 +46,36 @@ export const useExamAntiCheat = ({ sessionId, active, onTerminated }) => {
       const reason = VIOLATION_REASONS[type] || 'Prohibited action detected during active exam.';
 
       try {
-        await api.post('/exam/session/violation', {
+        const res = await api.post('/exam/session/violation', {
           sessionId,
           type,
           metadata,
         });
-      } catch (err) {
-        console.error('Failed to notify backend of violation:', err);
-      } finally {
+        // If backend returns a warning (first violation), show modal
+        if (res.data && res.data.warning) {
+          setWarning({ message: res.data.message, type });
+          // Reset termination flag to allow further violations
+          terminationInProgress.current = false;
+          return;
+        }
+        // No warning → termination
         if (typeof onTerminated === 'function') {
           onTerminated(reason, type);
         }
+      } catch (err) {
+        console.error('Failed to notify backend of violation:', err);
+        // In case of network error, still consider terminated to be safe
+        if (typeof onTerminated === 'function') {
+          onTerminated(reason, type);
+        }
+      } finally {
+        // Reset flag only if not waiting for warning acknowledgement
+        if (!warning) {
+          terminationInProgress.current = false;
+        }
       }
     },
-    [sessionId, active, onTerminated]
+    [sessionId, active, onTerminated, warning]
   );
 
   useEffect(() => {
@@ -223,6 +241,8 @@ export const useExamAntiCheat = ({ sessionId, active, onTerminated }) => {
 
   return {
     terminateExam,
+    warning,
+    clearWarning: () => setWarning(null),
   };
 };
 

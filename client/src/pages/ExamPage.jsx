@@ -15,7 +15,7 @@ import {
   HelpCircle,
   ShieldAlert,
 } from 'lucide-react';
-import { useExamAntiCheat } from '../hooks/useExamAntiCheat';
+import { useExamAntiCheat, VIOLATION_REASONS } from '../hooks/useExamAntiCheat';
 
 const ExamPage = () => {
   const { examId } = useParams();
@@ -127,11 +127,11 @@ const ExamPage = () => {
     session && session.status === 'IN_PROGRESS' && !submitting && !autoSubmittedAlert
   );
 
-  useExamAntiCheat({
-    sessionId: session?.sessionId,
-    active: isAntiCheatActive,
-    onTerminated: handleTerminated,
-  });
+  const { terminateExam, warning, clearWarning } = useExamAntiCheat({
+  sessionId: session?.sessionId,
+  active: isAntiCheatActive,
+  onTerminated: handleTerminated,
+});
 
   // Heartbeat keepalive every 10 seconds
   useEffect(() => {
@@ -585,7 +585,33 @@ const ExamPage = () => {
         </div>
       </div>
 
-      {/* Confirmation Modal */}
+      {/* Warning Modal */}
+{warning && (
+  <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="bg-white rounded-2xl p-6 sm:p-8 max-w-md w-full space-y-4 shadow-2xl">
+      <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto">
+        <AlertCircle className="w-6 h-6" />
+      </div>
+      <div className="text-center space-y-2">
+        <h3 className="text-lg font-bold text-slate-900">Warning</h3>
+        <p className="text-xs sm:text-sm text-slate-600">
+          {warning.message || VIOLATION_REASONS[warning.type] || 'Potential cheating detected.'}
+        </p>
+      </div>
+      <div className="flex justify-center mt-4">
+        <button
+          type="button"
+          onClick={() => clearWarning()}
+          className="py-2 px-4 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-semibold"
+        >
+          OK
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+{/* Confirmation Modal */}
       {showSubmitModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 sm:p-8 max-w-md w-full space-y-5 shadow-2xl">
