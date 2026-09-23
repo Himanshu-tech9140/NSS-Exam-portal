@@ -39,8 +39,12 @@ const ExamPage = () => {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [autoSubmittedAlert, setAutoSubmittedAlert] = useState(false);
+const [isExamStarted, setIsExamStarted] = useState(false); // New state to control exam start
 
-  // Subjective debounce timer ref
+  const handleStartExam = () => {
+  setIsExamStarted(true);
+};
+// Subjective debounce timer ref
   const debounceRef = useRef(null);
 
   // Fetch session and questions on mount
@@ -108,8 +112,10 @@ const ExamPage = () => {
   }, [examId, sessionIdParam, navigate]);
 
   useEffect(() => {
-    loadExamSession();
-  }, [loadExamSession]);
+    if (isExamStarted) {
+      loadExamSession();
+    }
+  }, [loadExamSession, isExamStarted]);
 
   // Central termination callback
   const handleTerminated = useCallback(
@@ -331,7 +337,19 @@ const ExamPage = () => {
   const currentAnswer = currentQ ? answersMap[currentQ.questionId] || '' : '';
   const answeredCount = Object.keys(answersMap).filter((k) => (answersMap[k] || '').trim()).length;
 
+  if (!isExamStarted) {
   return (
+    <div className="exam-secure-area relative min-h-screen py-4 sm:py-6 px-4 max-w-6xl mx-auto space-y-4">
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <h1 className="text-2xl font-bold mb-4">Ready to begin?</h1>
+        <button onClick={handleStartExam} className="bg-blue-600 text-white px-6 py-2 rounded-lg">
+          Start Exam
+        </button>
+      </div>
+    </div>
+  );
+}
+return (
     <div className="exam-secure-area relative min-h-screen py-4 sm:py-6 px-4 max-w-6xl mx-auto space-y-4">
       {/* Subtle Student-Specific Watermark Overlay (Requirement 19) */}
       <div
