@@ -10,10 +10,6 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle,
-  FileText,
-  User,
-  HelpCircle,
-  ShieldAlert,
 } from 'lucide-react';
 import { useExamAntiCheat, VIOLATION_REASONS } from '../hooks/useExamAntiCheat';
 
@@ -25,7 +21,9 @@ const ExamPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [loading, setLoading] = useState(true);
+  // The session is deliberately loaded only after the candidate confirms they
+  // are ready. Starting in a loading state would otherwise hide that screen.
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [exam, setExam] = useState(null);
   const [session, setSession] = useState(null);
@@ -39,12 +37,13 @@ const ExamPage = () => {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [autoSubmittedAlert, setAutoSubmittedAlert] = useState(false);
-const [isExamStarted, setIsExamStarted] = useState(false); // New state to control exam start
+  const [isExamStarted, setIsExamStarted] = useState(false);
 
   const handleStartExam = () => {
-  setIsExamStarted(true);
-};
-// Subjective debounce timer ref
+    setIsExamStarted(true);
+  };
+
+  // Subjective debounce timer ref
   const debounceRef = useRef(null);
 
   // Fetch session and questions on mount
@@ -133,11 +132,29 @@ const [isExamStarted, setIsExamStarted] = useState(false); // New state to contr
     session && session.status === 'IN_PROGRESS' && !submitting && !autoSubmittedAlert
   );
 
-  const { terminateExam, warning, clearWarning } = useExamAntiCheat({
-  sessionId: session?.sessionId,
-  active: isAntiCheatActive,
-  onTerminated: handleTerminated,
-});
+  const { warning, clearWarning } = useExamAntiCheat({
+    sessionId: session?.sessionId,
+    active: isAntiCheatActive,
+    onTerminated: handleTerminated,
+  });
+
+  // Auto-submit handler triggered when the server-side expiry time is reached.
+  // Define it before the effects that call it so they always receive the current
+  // session and navigation callback.
+  const handleAutoSubmit = useCallback(async () => {
+    if (!session) return;
+
+    setAutoSubmittedAlert(true);
+    try {
+      await api.post('/exam/session/submit', { sessionId: session.sessionId });
+    } catch {
+      // Ignore if the server already auto-submitted the session.
+    } finally {
+      setTimeout(() => {
+        navigate(`/exam/result?sessionId=${session.sessionId}`);
+      }, 2500);
+    }
+  }, [navigate, session]);
 
   // Heartbeat keepalive every 10 seconds
   useEffect(() => {
@@ -166,7 +183,7 @@ const [isExamStarted, setIsExamStarted] = useState(false); // New state to contr
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [session, submitting, autoSubmittedAlert, navigate]);
+  }, [session, submitting, autoSubmittedAlert, navigate, handleAutoSubmit]);
 
   // Server-synced countdown timer
   useEffect(() => {
@@ -185,21 +202,7 @@ const [isExamStarted, setIsExamStarted] = useState(false); // New state to contr
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [session, timeLeft]);
-
-  // Auto-submit handler triggered when server-side expiresAt is reached
-  const handleAutoSubmit = async () => {
-    setAutoSubmittedAlert(true);
-    try {
-      await api.post('/exam/session/submit', { sessionId: session.sessionId });
-    } catch {
-      // Ignore if server already auto-submitted
-    } finally {
-      setTimeout(() => {
-        navigate(`/exam/result?sessionId=${session.sessionId}`);
-      }, 2500);
-    }
-  };
+  }, [session, timeLeft, handleAutoSubmit]);
 
   // Save answer to backend
   const saveAnswerToBackend = async (questionId, answerValue) => {
@@ -338,18 +341,19 @@ const [isExamStarted, setIsExamStarted] = useState(false); // New state to contr
   const answeredCount = Object.keys(answersMap).filter((k) => (answersMap[k] || '').trim()).length;
 
   if (!isExamStarted) {
-  return (
-    <div className="exam-secure-area relative min-h-screen py-4 sm:py-6 px-4 max-w-6xl mx-auto space-y-4">
-      <div className="flex flex-col items-center justify-center min-h-screen">
+    return (
+      <div className="exam-secure-area relative min-h-screen py-4 sm:py-6 px-4 max-w-6xl mx-auto space-y-4">
+        <div className="flex flex-col items-center justify-center min-h-screen">
         <h1 className="text-2xl font-bold mb-4">Ready to begin?</h1>
         <button onClick={handleStartExam} className="bg-blue-600 text-white px-6 py-2 rounded-lg">
           Start Exam
         </button>
+        </div>
       </div>
-    </div>
-  );
-}
-return (
+    );
+  }
+
+  return (
     <div className="exam-secure-area relative min-h-screen py-4 sm:py-6 px-4 max-w-6xl mx-auto space-y-4">
       {/* Subtle Student-Specific Watermark Overlay (Requirement 19) */}
       <div
@@ -686,4 +690,3 @@ return (
 };
 
 export default ExamPage;
-
